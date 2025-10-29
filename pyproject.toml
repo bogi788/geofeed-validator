@@ -24,6 +24,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
@@ -33,10 +34,13 @@ description = "Validator library for self-published geo feeds"
 name = "geofeed-validator"
 readme = "README.rst"
 requires-python = "<4,>=3.10"
-version = "0.7.0"
+version = "0.7.1"
 [[project.authors]]
 email = "SPeijnik@anexia-it.com"
 name = "Stephan Peijnik-Steinwender"
+[[project.authors]]
+email = "GBogner@anexia-it.com"
+name = "Gerhard Bogner"
 
 [project.license]
 text = "AGPLv3+"

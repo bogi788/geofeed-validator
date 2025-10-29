@@ -76,13 +76,10 @@ class RecordValidationResult:
         self._raw_data = raw_data
         self._was_ignored = False
 
-        #: :type: bool
-        self._has_extra = "__extra__" in record
-        #: :type: list of str
-        self._extra = []
-        self._extra_offset = 0
-        #: :type: list of FieldResult
-        self._field_results: list[FieldResult] = []
+        self._has_extra: bool = "__extra__" in record
+        self._extra: list[str] = []
+        self._extra_offset: int = 0
+        self._field_results: dict[str, FieldResult] = {}
 
         if self._has_extra:
             self._extra = record["__extra__"]
@@ -91,7 +88,7 @@ class RecordValidationResult:
 
     @property
     def field_results(self) -> list[FieldResult]:
-        return self._field_results
+        return list(self._field_results.values())
 
     def validate(self):
         if len(self._record) == 0:
@@ -100,28 +97,24 @@ class RecordValidationResult:
 
         for field in self._fields:
             if field not in self._record:
-                self._field_results.append(
-                    FieldResult(
-                        field,
-                        None,
-                        ["Field is missing."] if field.REQUIRED else [],
-                        [] if field.REQUIRED else ["Field is missing."],
-                        None,
-                        "",
-                    )
+                self._field_results[field.name] = FieldResult(
+                    field,
+                    None,
+                    ["Field is missing."] if field.REQUIRED else [],
+                    [] if field.REQUIRED else ["Field is missing."],
+                    None,
+                    "",
                 )
             else:
                 # Validate the field data...
                 errors, warnings, cleaned_value = field.validate(self._record[field])
-                self._field_results.append(
-                    FieldResult(
-                        field,
-                        cleaned_value,
-                        list(errors),
-                        list(warnings),
-                        self._record[field],
-                        field.to_string(self._record[field]),
-                    )
+                self._field_results[field.name] = FieldResult(
+                    field,
+                    cleaned_value,
+                    list(errors),
+                    list(warnings),
+                    self._record[field],
+                    field.to_string(self._record[field]),
                 )
 
     def add_field_errors(self, field, errors):
@@ -130,12 +123,11 @@ class RecordValidationResult:
         elif not isinstance(errors, list):
             errors = [errors]
 
-        field_result = self.get_field_result(field)
-        if field_result:
+        if field_result := self.get_field_result(field):
             field_result.errors += errors
             return
 
-        self._field_results.append(FieldResult(field, None, errors, [], None, ""))
+        self._field_results[field.name] = FieldResult(field, None, errors, [], None, "")
 
     def add_field_warnings(self, field, warnings):
         if isinstance(warnings, tuple):
@@ -143,12 +135,11 @@ class RecordValidationResult:
         elif not isinstance(warnings, list):
             warnings = [warnings]
 
-        field_result = self.get_field_result(field)
-        if field_result:
+        if field_result := self.get_field_result(field):
             field_result.warnings += warnings
             return
 
-        self._field_results.append(FieldResult(field, None, [], warnings, None, ""))
+        self._field_results[field.name] = FieldResult(field, None, [], warnings, None, "")
 
     def get_field_result(self, field_name_or_class):
         """
@@ -157,20 +148,17 @@ class RecordValidationResult:
         :returns: FieldResult instance if found, None otherwise.
         :rtype: FieldResult
         """
-        field_name = field_name_or_class
         if inspect.isclass(field_name_or_class) and issubclass(field_name_or_class, Field):
             field_name = field_name_or_class.NAME
         elif isinstance(field_name_or_class, Field):
             field_name = field_name_or_class.name
+        else:
+            field_name = field_name_or_class
 
-        for fr in self._field_results:
-            if fr.field.name == field_name:
-                return fr
-        return None
+        return self._field_results.get(field_name)
 
     def get_field_value(self, field_name_or_class):
-        field_result = self.get_field_result(field_name_or_class)
-        if field_result:
+        if field_result := self.get_field_result(field_name_or_class):
             return field_result.value
         return None
 
@@ -188,19 +176,19 @@ class RecordValidationResult:
 
     @property
     def error_count(self):
-        return sum([len(fr.errors) for fr in self._field_results])
+        return sum(len(fr.errors) for fr in self._field_results.values())
 
     @property
     def warning_count(self):
-        return sum([len(fr.warnings) for fr in self._field_results])
+        return sum(len(fr.warnings) for fr in self._field_results.values())
 
     @property
     def has_errors(self):
-        return self.error_count > 0
+        return any(fr.errors for fr in self._field_results.values())
 
     @property
     def has_warnings(self):
-        return self.warning_count > 0
+        return any(fr.warnings for fr in self._field_results.values())
 
     @property
     def record_no(self):
